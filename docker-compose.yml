@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: bcb-postgres
+    environment:
+      POSTGRES_DB: bcb
+      POSTGRES_USER: bcb_u
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+
+  bcb:
+    build:
+      context: .
+    container_name: BCB
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://bcb-postgres:5432/bcb
+      SPRING_DATASOURCE_USERNAME: bcb_u
+      SPRING_DATASOURCE_PASSWORD: 123456
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local
