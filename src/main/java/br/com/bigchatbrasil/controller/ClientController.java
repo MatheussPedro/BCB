@@ -20,6 +20,8 @@ public class ClientController {
 
     @PostMapping
     public ResponseEntity<Client> createClient(@RequestBody Client client) {
+        client.setSaldo(50.00);
+        client.setLimiteDinheiro(50.00);
         Client saved = clientRepository.save(client);
         return ResponseEntity.ok(saved);
     }
@@ -56,9 +58,7 @@ public class ClientController {
                     if ("pre".equalsIgnoreCase(client.getPlanType())) {
                         return ResponseEntity.ok("Saldo: R$ " + client.getSaldo());
                     } else {
-                        client.setLimiteDinheiro(500.00);
                         return ResponseEntity.ok("Limite: R$ " + client.getLimiteDinheiro());
-
                     }
                 })
                 .orElse(ResponseEntity.notFound().build());
