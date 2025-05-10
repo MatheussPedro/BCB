@@ -21,6 +21,7 @@ public class ClientController {
 
     @PostMapping
     public ResponseEntity<Client> createClient(@RequestBody Client client) {
+        System.out.println("Recebendo dados do cliente: " + client);
         if ("prepaid".equals(client.getPlanType())) {
             client.setBalance(100.00);
             client.setLimit(0.00);
@@ -29,6 +30,7 @@ public class ClientController {
             client.setLimit(100.00);
         }
         Client saved = clientRepository.save(client);
+        System.out.println("Cliente salvo: " + saved);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
