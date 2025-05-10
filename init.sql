@@ -1,10 +1,20 @@
+CREATE DATABASE bcb;
+
+CREATE USER bcb_u WITH PASSWORD '123456';
+ALTER ROLE bcb_u SET client_encoding TO 'utf8';
+ALTER ROLE bcb_u SET default_transaction_isolation TO 'read committed';
+ALTER ROLE bcb_u SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE bcb TO bcb_u;
+
 CREATE TABLE clientes (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
-    tipo_pessoa VARCHAR(2) CHECK (tipo_pessoa IN ('PF', 'PJ')),
+    tipo_pessoa VARCHAR(2) CHECK (tipo_pessoa IN ('PF', 'PJ')) NOT NULL,
     documento VARCHAR(20) UNIQUE NOT NULL,
     plano VARCHAR(10) CHECK (plano IN ('pre', 'pos')) NOT NULL,
-    status BOOLEAN DEFAULT TRUE
+    status BOOLEAN DEFAULT TRUE,
+    saldo DECIMAL(10, 2) DEFAULT 0.00,
+    limite_dinheiro DECIMAL(10, 2) DEFAULT 0.00
 );
 
 CREATE TABLE mensagens (
@@ -22,7 +32,7 @@ CREATE TABLE mensagens (
 CREATE TABLE transacoes (
     id SERIAL PRIMARY KEY,
     cliente_id INT REFERENCES clientes(id),
-    tipo_transacao VARCHAR(10) CHECK (tipo_transacao IN ('debito', 'credito')),
+    tipo_transacao VARCHAR(10) CHECK (tipo_transacao IN ('debito', 'credito')) NOT NULL,
     valor DECIMAL(10,2) NOT NULL,
     descricao TEXT,
     data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP
