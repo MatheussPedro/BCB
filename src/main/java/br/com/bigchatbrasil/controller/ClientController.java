@@ -2,6 +2,7 @@ package br.com.bigchatbrasil.controller;
 
 import br.com.bigchatbrasil.model.Client;
 import br.com.bigchatbrasil.repository.ClientRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,15 +21,15 @@ public class ClientController {
 
     @PostMapping
     public ResponseEntity<Client> createClient(@RequestBody Client client) {
-        client.setSaldo(50.00);
-        client.setLimiteDinheiro(50.00);
+        if ("prepaid".equals(client.getPlanType())) {
+            client.setBalance(100.00);
+            client.setLimit(0.00);
+        } else if ("postpaid".equals(client.getPlanType())) {
+            client.setBalance(0.00);
+            client.setLimit(100.00);
+        }
         Client saved = clientRepository.save(client);
-        return ResponseEntity.ok(saved);
-    }
-
-    @GetMapping
-    public ResponseEntity<List<Client>> getAllClients() {
-        return ResponseEntity.ok(clientRepository.findAll());
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
     @GetMapping("/{id}")
@@ -53,14 +54,21 @@ public class ClientController {
 
     @GetMapping("/{id}/balance")
     public ResponseEntity<String> getClientBalance(@PathVariable Long id) {
-        return clientRepository.findById(id)
-                .map(client -> {
-                    if ("pre".equalsIgnoreCase(client.getPlanType())) {
-                        return ResponseEntity.ok("Saldo: R$ " + client.getSaldo());
-                    } else {
-                        return ResponseEntity.ok("Limite: R$ " + client.getLimiteDinheiro());
-                    }
-                })
-                .orElse(ResponseEntity.notFound().build());
+        Optional<Client> client = clientRepository.findById(id);
+        if (client.isPresent()) {
+            Client foundClient = client.get();
+            if ("prepaid".equals(foundClient.getPlanType())) {
+                return ResponseEntity.ok("Saldo: R$ " + foundClient.getBalance());
+            } else {
+                return ResponseEntity.ok("Limite: R$ " + foundClient.getLimit());
+            }
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Client>> getAllClients() {
+        List<Client> clients = clientRepository.findAll();
+        return ResponseEntity.ok(clients);
     }
 }

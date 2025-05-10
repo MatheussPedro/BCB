@@ -13,23 +13,39 @@ public class Client {
     @Column(name = "nome", nullable = false, length = 255)
     private String name;
 
-    @Column(name = "tipo_pessoa", nullable = false, length = 2)
-    private String documentType;
-
     @Column(name = "documento", nullable = false, length = 20, unique = true)
     private String documentId;
+
+    @Column(name = "tipo_documento", nullable = false, length = 4)
+    private String documentType;
 
     @Column(name = "plano", nullable = false, length = 10)
     private String planType;
 
+    @Column(name = "saldo", nullable = false)
+    private Double balance;
+
+    @Column(name = "limite", nullable = false)
+    private Double limit;
+
     @Column(name = "status", nullable = false)
     private Boolean active;
 
-    @Column(name = "saldo", nullable = false)
-    private Double saldo;
+    public Double getBalance() {
+        return balance;
+    }
 
-    @Column(name = "limite_dinheiro")
-    private Double limiteDinheiro;
+    public void setBalance(Double balance) {
+        this.balance = balance;
+    }
+
+    public Double getLimit() {
+        return limit;
+    }
+
+    public void setLimit(Double limit) {
+        this.limit = limit;
+    }
 
     public Long getId() {
         return id;
@@ -79,19 +95,4 @@ public class Client {
         this.active = active;
     }
 
-    public Double getLimiteDinheiro() {
-        return limiteDinheiro;
-    }
-
-    public void setLimiteDinheiro(Double limiteDinheiro) {
-        this.limiteDinheiro = limiteDinheiro;
-    }
-
-    public Double getSaldo() {
-        return saldo;
-    }
-
-    public void setSaldo(Double saldo) {
-        this.saldo = saldo;
-    }
 }
