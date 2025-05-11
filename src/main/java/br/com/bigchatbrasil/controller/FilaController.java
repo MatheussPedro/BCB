@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/fila")
@@ -136,5 +138,23 @@ public class FilaController {
         }
 
         return ResponseEntity.ok(log.toString());
+    }
+
+    @GetMapping("/queue/status")
+    public ResponseEntity<Map<String, Object>> getQueueStatus() {
+        long queueSize = filaMensagemRepository.count();
+
+        long processedMessages = messageRepository.count();
+
+        long urgentMessages = filaMensagemRepository.countByPriority("urgent");
+        long normalMessages = filaMensagemRepository.countByPriority("normal");
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("queueSize", queueSize);
+        stats.put("processedMessages", processedMessages);
+        stats.put("urgentMessages", urgentMessages);
+        stats.put("normalMessages", normalMessages);
+
+        return ResponseEntity.ok(stats);
     }
 }

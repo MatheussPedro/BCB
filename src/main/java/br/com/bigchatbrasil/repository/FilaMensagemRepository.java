@@ -12,4 +12,6 @@ public interface FilaMensagemRepository extends JpaRepository<FilaMensagem, Long
     @Query("SELECT f FROM FilaMensagem f ORDER BY " +
             "CASE WHEN f.priority = 'urgent' THEN 1 ELSE 2 END, f.timestamp ASC")
     List<FilaMensagem> findPrioritized();
+
+    public long countByPriority(String priority);
 }
