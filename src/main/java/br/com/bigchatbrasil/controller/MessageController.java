@@ -1,11 +1,13 @@
 package br.com.bigchatbrasil.controller;
 
 import br.com.bigchatbrasil.Services.ClientService;
-import br.com.bigchatbrasil.Services.MessageService;
 import br.com.bigchatbrasil.model.Client;
 import br.com.bigchatbrasil.model.Conversa;
+import br.com.bigchatbrasil.model.FilaMensagem;
 import br.com.bigchatbrasil.model.Message;
+import br.com.bigchatbrasil.repository.ClientRepository;
 import br.com.bigchatbrasil.repository.ConversaRepository;
+import br.com.bigchatbrasil.repository.FilaMensagemRepository;
 import br.com.bigchatbrasil.repository.MessageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,86 +22,90 @@ import java.util.Optional;
 public class MessageController {
 
     @Autowired
+    private FilaMensagemRepository filaMensagemRepository;
+
+    @Autowired
+    private ClientService clientService;
+
+    @Autowired
     private MessageRepository messageRepository;
 
     @Autowired
     private ConversaRepository conversaRepository;
 
-    @Autowired
-    private ClientService clientService;
-
-    @PostMapping
-    public ResponseEntity<?> sendMessage(@RequestBody Message message) {
-        Client clientInput = message.getClient();
-        if (clientInput == null || clientInput.getId() == null) {
-            return ResponseEntity.badRequest().body("Cliente não informado ou ID ausente.");
+    @PostMapping("/fila")
+    public ResponseEntity<?> adicionarNaFila(@RequestBody FilaMensagem filaMensagem) {
+        if (filaMensagem.getClient() == null || filaMensagem.getClient().getId() == null) {
+            return ResponseEntity.badRequest().body("Cliente não informado.");
         }
 
-        Optional<Client> optionalClient = clientService.getClientById(clientInput.getId());
-        if (optionalClient.isEmpty()) {
-            return ResponseEntity.badRequest().body("Cliente não encontrado.");
-        }
-        Client client = optionalClient.get();
+        filaMensagem.setTimestamp(LocalDateTime.now()); // se tiver o campo
+        filaMensagemRepository.save(filaMensagem);
 
-        if (clientInput.getPlanType() != null && !clientInput.getPlanType().equals(client.getPlanType())) {
-            client.setPlanType(clientInput.getPlanType());
-            clientService.updateClient(client.getId(), client);
-        }
-
-        System.out.println("Cliente encontrado: " + client.getPlanType());
-
-        double custo = "urgent".equalsIgnoreCase(message.getPriority()) ? 0.50 : 0.25;
-
-        if ("prepaid".equalsIgnoreCase(client.getPlanType())) {
-            if (client.getBalance() == null || client.getBalance() < custo) {
-                return ResponseEntity.badRequest().body("Saldo insuficiente ou não def");
-            }
-            client.setBalance(client.getBalance() - custo);
-
-        } else if ("postpaid".equalsIgnoreCase(client.getPlanType())) {
-            if (client.getLimit() == null || client.getLimit() < custo) {
-                return ResponseEntity.badRequest().body("Limite insuficiente ou não definido.");
-            }
-            client.setLimit(client.getLimit() - custo);
-
-        } else {
-            System.out.println("Tipo de plano desconhecido: " + client.getPlanType());
-            return ResponseEntity.badRequest().body("Tipo de plano desconhecido: " + client.getPlanType());
-        }
-
-        clientService.updateClient(client.getId(), client);
-
-        Conversa conversa = conversaRepository.findByClientAndRecipient(client, message.getRecipient())
-                .orElseGet(() -> {
-                    Conversa nova = new Conversa();
-                    nova.setClient(client);
-                    nova.setRecipient(message.getRecipient());
-                    nova.setRecipientName(message.getRecipient().getName());
-                    nova.setLastMessageContent(message.getText());
-                    nova.setLastMessageTime(LocalDateTime.now());
-                    nova.setUnreadCount(1);
-                    return conversaRepository.save(nova);
-                });
-
-        message.setTimestamp(LocalDateTime.now());
-        message.setCost(custo);
-        message.setStatus("queued");
-        message.setConversation(conversa);
-
-        conversa.setLastMessageContent(message.getText());
-        conversa.setLastMessageTime(message.getTimestamp());
-        conversa.setUnreadCount(conversa.getUnreadCount() + 1);
-        conversaRepository.save(conversa);
-
-        System.out.println("Mensagem salva: " + message.getText());
-
-        return ResponseEntity.ok(messageRepository.save(message));
+        return ResponseEntity.ok("Mensagem adicionada à fila com sucesso.");
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Message> getMessageById(@PathVariable Long id) {
-        Optional<Message> message = messageRepository.findById(id);
-        return message.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    @GetMapping("/fila/processar")
+    public ResponseEntity<?> processarFila() {
+        List<FilaMensagem> fila = filaMensagemRepository.findPrioritized();
+
+        if (fila.isEmpty()) return ResponseEntity.ok("Nenhuma mensagem para processar.");
+
+        StringBuilder log = new StringBuilder("Processando mensagens:\n");
+
+        for (FilaMensagem f : fila) {
+            Client client = f.getClient();
+            double custo = "urgent".equalsIgnoreCase(f.getPriority()) ? 0.50 : 0.25;
+
+            if ("prepaid".equalsIgnoreCase(client.getPlanType())) {
+                if (client.getBalance() == null || client.getBalance() < custo) continue;
+                client.setBalance(client.getBalance() - custo);
+
+            } else if ("postpaid".equalsIgnoreCase(client.getPlanType())) {
+                if (client.getLimit() == null || client.getLimit() < custo) continue;
+                client.setLimit(client.getLimit() - custo);
+            } else {
+                continue;
+            }
+
+            clientService.updateClient(client.getId(), client);
+
+            Conversa conversa = conversaRepository.findByClientAndRecipient(client, f.getRecipient())
+                    .orElseGet(() -> {
+                        Conversa nova = new Conversa();
+                        nova.setClient(client);
+                        nova.setRecipient(f.getRecipient());
+                        nova.setRecipientName(f.getRecipient().getName());
+                        nova.setLastMessageContent(f.getText());
+                        nova.setLastMessageTime(LocalDateTime.now());
+                        nova.setUnreadCount(1);
+                        return conversaRepository.save(nova);
+                    });
+
+            Message msg = new Message();
+            msg.setClient(client);
+            msg.setRecipient(f.getRecipient());
+            msg.setText(f.getText());
+            msg.setPriority(f.getPriority());
+            msg.setType(f.getType());
+            msg.setTimestamp(LocalDateTime.now());
+            msg.setCost(custo);
+            msg.setStatus("sent");
+            msg.setConversation(conversa);
+
+            messageRepository.save(msg);
+
+            conversa.setLastMessageContent(f.getText());
+            conversa.setLastMessageTime(msg.getTimestamp());
+            conversa.setUnreadCount(conversa.getUnreadCount() + 1);
+            conversaRepository.save(conversa);
+
+            filaMensagemRepository.delete(f);
+
+            log.append("Mensagem processada: ").append(msg.getText()).append("\n");
+        }
+
+        return ResponseEntity.ok(log.toString());
     }
 
     @GetMapping
@@ -112,14 +118,4 @@ public class MessageController {
         Optional<Message> message = messageRepository.findById(id);
         return message.map(m -> ResponseEntity.ok(m.getStatus())).orElse(ResponseEntity.notFound().build());
     }
-
-    @Autowired
-    private MessageService messageService;
-
-    @PostMapping("/process")
-    public ResponseEntity<String> processMessages() {
-        messageService.processMessages();
-        return ResponseEntity.ok("Mensagens processadas com sucesso");
-    }
-
 }
