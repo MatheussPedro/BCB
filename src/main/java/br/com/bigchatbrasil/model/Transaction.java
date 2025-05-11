@@ -1,13 +1,11 @@
 package br.com.bigchatbrasil.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "transactions")
 public class Transaction {
 
     @Id
@@ -21,6 +19,9 @@ public class Transaction {
     private double amount;
     private LocalDateTime timestamp;
     private String description;
+
+    private Double balanceAfterTransaction;
+    private Double limitAfterTransaction;
 
     public Long getId() {
         return id;
@@ -68,5 +69,21 @@ public class Transaction {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Double getBalanceAfterTransaction() {
+        return balanceAfterTransaction;
+    }
+
+    public void setBalanceAfterTransaction(Double balanceAfterTransaction) {
+        this.balanceAfterTransaction = balanceAfterTransaction;
+    }
+
+    public Double getLimitAfterTransaction() {
+        return limitAfterTransaction;
+    }
+
+    public void setLimitAfterTransaction(Double limitAfterTransaction) {
+        this.limitAfterTransaction = limitAfterTransaction;
     }
 }
