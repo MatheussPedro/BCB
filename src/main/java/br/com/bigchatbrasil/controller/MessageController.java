@@ -1,14 +1,8 @@
 package br.com.bigchatbrasil.controller;
 
 import br.com.bigchatbrasil.Services.ClientService;
-import br.com.bigchatbrasil.model.Client;
-import br.com.bigchatbrasil.model.Conversa;
-import br.com.bigchatbrasil.model.FilaMensagem;
-import br.com.bigchatbrasil.model.Message;
-import br.com.bigchatbrasil.repository.ClientRepository;
-import br.com.bigchatbrasil.repository.ConversaRepository;
-import br.com.bigchatbrasil.repository.FilaMensagemRepository;
-import br.com.bigchatbrasil.repository.MessageRepository;
+import br.com.bigchatbrasil.model.*;
+import br.com.bigchatbrasil.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,13 +27,16 @@ public class MessageController {
     @Autowired
     private ConversaRepository conversaRepository;
 
+    @Autowired
+    private TransactionRepository transactionRepository;
+
     @PostMapping("/fila")
     public ResponseEntity<?> adicionarNaFila(@RequestBody FilaMensagem filaMensagem) {
         if (filaMensagem.getClient() == null || filaMensagem.getClient().getId() == null) {
             return ResponseEntity.badRequest().body("Cliente não informado.");
         }
 
-        filaMensagem.setTimestamp(LocalDateTime.now()); // se tiver o campo
+        filaMensagem.setTimestamp(LocalDateTime.now());
         filaMensagemRepository.save(filaMensagem);
 
         return ResponseEntity.ok("Mensagem adicionada à fila com sucesso.");
@@ -60,7 +57,6 @@ public class MessageController {
             if ("prepaid".equalsIgnoreCase(client.getPlanType())) {
                 if (client.getBalance() == null || client.getBalance() < custo) continue;
                 client.setBalance(client.getBalance() - custo);
-
             } else if ("postpaid".equalsIgnoreCase(client.getPlanType())) {
                 if (client.getLimit() == null || client.getLimit() < custo) continue;
                 client.setLimit(client.getLimit() - custo);
@@ -70,42 +66,27 @@ public class MessageController {
 
             clientService.updateClient(client.getId(), client);
 
-            Conversa conversa = conversaRepository.findByClientAndRecipient(client, f.getRecipient())
-                    .orElseGet(() -> {
-                        Conversa nova = new Conversa();
-                        nova.setClient(client);
-                        nova.setRecipient(f.getRecipient());
-                        nova.setRecipientName(f.getRecipient().getName());
-                        nova.setLastMessageContent(f.getText());
-                        nova.setLastMessageTime(LocalDateTime.now());
-                        nova.setUnreadCount(1);
-                        return conversaRepository.save(nova);
-                    });
+            Transaction transaction = new Transaction();
+            transaction.setClient(client);
+            transaction.setAmount(custo);
+            transaction.setTimestamp(LocalDateTime.now());
+            transaction.setDescription("Envio de mensagem - " + f.getPriority() + " custo");
+            transaction.setType("debit");
 
-            Message msg = new Message();
-            msg.setClient(client);
-            msg.setRecipient(f.getRecipient());
-            msg.setText(f.getText());
-            msg.setPriority(f.getPriority());
-            msg.setType(f.getType());
-            msg.setTimestamp(LocalDateTime.now());
-            msg.setCost(custo);
-            msg.setStatus("sent");
-            msg.setConversation(conversa);
+            transactionRepository.save(transaction);
 
-            messageRepository.save(msg);
 
-            conversa.setLastMessageContent(f.getText());
-            conversa.setLastMessageTime(msg.getTimestamp());
-            conversa.setUnreadCount(conversa.getUnreadCount() + 1);
-            conversaRepository.save(conversa);
-
+            log.append("Mensagem processada: ").append(f.getText()).append("\n");
             filaMensagemRepository.delete(f);
-
-            log.append("Mensagem processada: ").append(msg.getText()).append("\n");
         }
 
         return ResponseEntity.ok(log.toString());
+    }
+
+    @GetMapping("/historico/{clientId}")
+    public ResponseEntity<List<Transaction>> getTransactionHistory(@PathVariable Long clientId) {
+        List<Transaction> transactions = transactionRepository.findByClientId(clientId);
+        return ResponseEntity.ok(transactions);
     }
 
     @GetMapping

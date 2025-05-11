@@ -31,8 +31,6 @@ public class FilaMensagem {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
-    // Getters e Setters
-
     public Long getId() {
         return id;
     }
