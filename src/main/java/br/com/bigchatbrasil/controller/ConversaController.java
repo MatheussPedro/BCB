@@ -5,6 +5,8 @@ import br.com.bigchatbrasil.Services.ConversaService;
 import br.com.bigchatbrasil.model.Conversa;
 import br.com.bigchatbrasil.model.Message;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,17 +23,41 @@ public class ConversaController {
     private MessageService messageService;
 
     @GetMapping
-    public List<Conversa> getConversations(@RequestParam Long clientId) {
-        return conversaService.getConversationsByClientId(clientId);
+    public ResponseEntity<?> getConversations(@RequestParam Long clientId) {
+        List<Conversa> conversations = conversaService.getConversationsByClientId(clientId);
+
+        if (conversations.isEmpty()) {
+            String message = "Nenhuma conversa encontrada para o cliente com ID " + clientId + ".";
+            System.out.println(message);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message);
+        }
+
+        return ResponseEntity.ok(conversations);
     }
 
     @GetMapping("/{id}")
-    public Optional<Conversa> getConversaById(@PathVariable Long id) {
-        return conversaService.getConversaById(id);
+    public ResponseEntity<?> getConversaById(@PathVariable Long id) {
+        Optional<Conversa> conversa = conversaService.getConversaById(id);
+
+        if (!conversa.isPresent()) {
+            String message = "Conversa com ID " + id + " não encontrada.";
+            System.out.println(message);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message);
+        }
+
+        return ResponseEntity.ok(conversa.get());
     }
 
     @GetMapping("/{id}/messages")
-    public List<Message> getMessagesByConversation(@PathVariable Long id) {
-        return messageService.getMessagesByConversationId(id);
+    public ResponseEntity<?> getMessagesByConversation(@PathVariable Long id) {
+        List<Message> messages = messageService.getMessagesByConversationId(id);
+
+        if (messages.isEmpty()) {
+            String message = "Nenhuma mensagem encontrada para a conversa com ID " + id + ".";
+            System.out.println(message);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(message);
+        }
+
+        return ResponseEntity.ok(messages);
     }
 }
