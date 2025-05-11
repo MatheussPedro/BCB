@@ -24,7 +24,7 @@ public class ClientController {
     public ResponseEntity<Object> getAuthenticatedClient() {
         Client client = ClientContextHolder.get();
         if (client == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não autenticado. Por favor, faça login.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Usuário não autenticado. Por favor, cadastre um.");
         }
         return ResponseEntity.ok(client);
     }
