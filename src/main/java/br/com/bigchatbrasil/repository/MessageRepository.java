@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByConversation_Id(Long conversationId);
+    List<Message> findByStatusAndPriorityOrderByTimestampAsc(String status, String priority);
 }

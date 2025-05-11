@@ -4,6 +4,7 @@ import br.com.bigchatbrasil.model.Conversa;
 import br.com.bigchatbrasil.model.Message;
 import br.com.bigchatbrasil.repository.ConversaRepository;
 import br.com.bigchatbrasil.repository.MessageRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +50,26 @@ public class MessageService {
         return messageRepository.save(message);
     }
 
+    public List<Message> getNextMessagesToProcess() {
+        List<Message> urgentes = messageRepository.findByStatusAndPriorityOrderByTimestampAsc("queued", "urgent");
+        List<Message> normais = messageRepository.findByStatusAndPriorityOrderByTimestampAsc("queued", "normal");
+
+        List<Message> todas = new java.util.ArrayList<>();
+        todas.addAll(urgentes);
+        todas.addAll(normais);
+        return todas;
+    }
+
+    @Transactional
+    public void processMessages() {
+        List<Message> messagesToProcess = getNextMessagesToProcess();
+
+        for (Message message : messagesToProcess) {
+            message.setStatus("processed");
+            messageRepository.save(message);
+        }
+    }
+
     public List<Message> getMessagesByConversationId(Long conversationId) {
         return messageRepository.findByConversation_Id(conversationId);
     }
@@ -57,3 +78,4 @@ public class MessageService {
         return messageRepository.findById(id);
     }
 }
+

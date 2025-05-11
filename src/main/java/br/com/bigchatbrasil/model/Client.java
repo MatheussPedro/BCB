@@ -22,7 +22,7 @@ public class Client {
     @Column(name = "plano", nullable = false, length = 10)
     private String planType;
 
-    @Column(name = "saldo", nullable = false)
+    @Column(name = "saldo", nullable = true)
     private Double balance;
 
     @Column(name = "limite", nullable = false)
@@ -32,7 +32,7 @@ public class Client {
     private Boolean active;
 
     public Double getBalance() {
-        return balance;
+        return balance != null ? balance : 0.0;
     }
 
     public void setBalance(Double balance) {

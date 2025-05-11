@@ -49,6 +49,14 @@ public class ClientController {
                     client.setDocumentType(updatedClient.getDocumentType());
                     client.setPlanType(updatedClient.getPlanType());
                     client.setActive(updatedClient.getActive());
+
+                    if ("prepaid".equals(client.getPlanType())) {
+                        client.setBalance(100.00);
+                        client.setLimit(0.00);
+                    } else if ("postpaid".equals(client.getPlanType())) {
+                        client.setBalance(0.00);
+                        client.setLimit(100.00);
+                    }
                     return ResponseEntity.ok(clientRepository.save(client));
                 })
                 .orElse(ResponseEntity.notFound().build());
