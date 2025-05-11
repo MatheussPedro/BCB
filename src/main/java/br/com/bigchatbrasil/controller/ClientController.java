@@ -2,6 +2,7 @@ package br.com.bigchatbrasil.controller;
 
 import br.com.bigchatbrasil.model.Client;
 import br.com.bigchatbrasil.repository.ClientRepository;
+import br.com.bigchatbrasil.security.ClientContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,15 @@ public class ClientController {
 
     public ClientController(ClientRepository clientRepository) {
         this.clientRepository = clientRepository;
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<Client> getAuthenticatedClient() {
+        Client client = ClientContextHolder.get();
+        if (client == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(client);
     }
 
     @PostMapping
