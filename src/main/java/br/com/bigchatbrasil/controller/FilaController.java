@@ -9,6 +9,7 @@ import br.com.bigchatbrasil.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -141,11 +142,15 @@ public class FilaController {
     }
 
     @GetMapping("/queue/status")
-    public ResponseEntity<Map<String, Object>> getQueueStatus() {
+    public ResponseEntity<?> getQueueStatus(@RequestHeader(value = "X-Admin-Token", required = false) String token) {
+        final String expectedToken = "123";
+
+        if (token == null || !token.equals(expectedToken)) {
+            return ResponseEntity.status(401).body("Acesso não autorizado. Token inválido.");
+        }
+
         long queueSize = filaMensagemRepository.count();
-
         long processedMessages = messageRepository.count();
-
         long urgentMessages = filaMensagemRepository.countByPriority("urgent");
         long normalMessages = filaMensagemRepository.countByPriority("normal");
 
