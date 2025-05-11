@@ -1,4 +1,5 @@
 package br.com.bigchatbrasil.model;
+import br.com.bigchatbrasil.model.Conversa;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
@@ -19,6 +20,10 @@ public class Message {
     @JoinColumn(name = "recipient_id", nullable = false)
     private Client recipient;
 
+    @ManyToOne
+    @JoinColumn(name = "conversation_id")
+    private Conversa conversation;
+
     @Column(name = "texto", nullable = false)
     private String text;
 
@@ -36,6 +41,7 @@ public class Message {
 
     @Column(name = "data_hora", nullable = false)
     private LocalDateTime timestamp;
+
 
     public Long getId() {
         return id;
@@ -67,6 +73,14 @@ public class Message {
 
     public void setText(String text) {
         this.text = text;
+    }
+
+    public Conversa getConversation() {
+        return conversation;
+    }
+
+    public void setConversation(Conversa conversation) {
+        this.conversation = conversation;
     }
 
     public String getType() {
