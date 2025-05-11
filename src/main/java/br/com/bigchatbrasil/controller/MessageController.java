@@ -30,31 +30,26 @@ public class MessageController {
 
     @PostMapping
     public ResponseEntity<?> sendMessage(@RequestBody Message message) {
-        // Verificar se o cliente está presente e se o ID foi fornecido
         Client clientInput = message.getClient();
         if (clientInput == null || clientInput.getId() == null) {
             return ResponseEntity.badRequest().body("Cliente não informado ou ID ausente.");
         }
 
-        // Buscar o cliente no banco de dados
         Optional<Client> optionalClient = clientService.getClientById(clientInput.getId());
         if (optionalClient.isEmpty()) {
             return ResponseEntity.badRequest().body("Cliente não encontrado.");
         }
         Client client = optionalClient.get();
 
-        // Atualizar o tipo de plano, caso necessário
         if (clientInput.getPlanType() != null && !clientInput.getPlanType().equals(client.getPlanType())) {
             client.setPlanType(clientInput.getPlanType());
-            clientService.updateClient(client.getId(), client);  // Atualiza o cliente no banco
+            clientService.updateClient(client.getId(), client);
         }
 
-        // Adicionar log para verificar o tipo de plano do cliente
         System.out.println("Cliente encontrado: " + client.getPlanType());
 
         double custo = "urgent".equalsIgnoreCase(message.getPriority()) ? 0.50 : 0.25;
 
-        // Verificar se o tipo de plano é válido
         if ("prepaid".equalsIgnoreCase(client.getPlanType())) {
             if (client.getBalance() == null || client.getBalance() < custo) {
                 return ResponseEntity.badRequest().body("Saldo insuficiente ou não def");
@@ -68,15 +63,12 @@ public class MessageController {
             client.setLimit(client.getLimit() - custo);
 
         } else {
-            // Log para tipo de plano desconhecido
             System.out.println("Tipo de plano desconhecido: " + client.getPlanType());
             return ResponseEntity.badRequest().body("Tipo de plano desconhecido: " + client.getPlanType());
         }
 
-        // Atualizar o cliente
         clientService.updateClient(client.getId(), client);
 
-        // Criar ou buscar a conversa
         Conversa conversa = conversaRepository.findByClientAndRecipient(client, message.getRecipient())
                 .orElseGet(() -> {
                     Conversa nova = new Conversa();
@@ -89,19 +81,16 @@ public class MessageController {
                     return conversaRepository.save(nova);
                 });
 
-        // Preparar e salvar a mensagem
         message.setTimestamp(LocalDateTime.now());
         message.setCost(custo);
         message.setStatus("queued");
         message.setConversation(conversa);
 
-        // Atualizar conversa
         conversa.setLastMessageContent(message.getText());
         conversa.setLastMessageTime(message.getTimestamp());
         conversa.setUnreadCount(conversa.getUnreadCount() + 1);
         conversaRepository.save(conversa);
 
-        // Log para confirmar que a mensagem foi salva
         System.out.println("Mensagem salva: " + message.getText());
 
         return ResponseEntity.ok(messageRepository.save(message));
