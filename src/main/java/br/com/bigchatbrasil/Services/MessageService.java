@@ -1,11 +1,13 @@
 package br.com.bigchatbrasil.Services;
-
-import br.com.bigchatbrasil.model.Conversa;
+import br.com.bigchatbrasil.model.FilaMensagem;
 import br.com.bigchatbrasil.model.Message;
-import br.com.bigchatbrasil.repository.ConversaRepository;
-import br.com.bigchatbrasil.repository.MessageRepository;
-import jakarta.transaction.Transactional;
+import br.com.bigchatbrasil.repository.*;
+
+import br.com.bigchatbrasil.model.Transaction;
+import  br.com.bigchatbrasil.model.Client;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -21,53 +23,83 @@ public class MessageService {
     @Autowired
     private ConversaRepository conversaRepository;
 
-    public Message sendMessage(Message message) {
-        Conversa conversa = conversaRepository.findByClientAndRecipient(message.getClient(), message.getRecipient())
-                .orElseGet(() -> {
-                    Conversa newConversa = new Conversa();
-                    newConversa.setClient(message.getClient());
-                    newConversa.setRecipient(message.getRecipient());
-                    newConversa.setRecipientName(message.getRecipient().getName());
-                    newConversa.setLastMessageContent(message.getText());
-                    newConversa.setLastMessageTime(LocalDateTime.now());
-                    newConversa.setUnreadCount(1);
-                    return conversaRepository.save(newConversa);
-                });
+    @Autowired
+    private FilaMensagemRepository filaMensagemRepository;
 
-        message.setTimestamp(LocalDateTime.now());
-        if ("urgent".equalsIgnoreCase(message.getPriority())) {
-            message.setCost(0.50);
-        } else {
-            message.setCost(0.25);
+    @Autowired
+    private TransactionRepository transactionRepository;
+
+    @Autowired
+    private ClientRepository clientRepository;
+
+    @Autowired
+    private ClientService clientService;
+
+    public ResponseEntity<?> adicionarNaFila(FilaMensagem filaMensagem) {
+        if (filaMensagem.getClient() == null || filaMensagem.getClient().getId() == null) {
+            return ResponseEntity.badRequest().body("Cliente não informado.");
         }
-        message.setStatus("queued");
 
-        conversa.setLastMessageContent(message.getText());
-        conversa.setLastMessageTime(message.getTimestamp());
-        conversa.setUnreadCount(conversa.getUnreadCount() + 1);
-        conversaRepository.save(conversa);
+        Optional<Client> existingClient = clientRepository.findById(filaMensagem.getClient().getId());
+        if (!existingClient.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Cliente com ID " + filaMensagem.getClient().getId() + " não encontrado.");
+        }
 
-        return messageRepository.save(message);
+        filaMensagem.setTimestamp(LocalDateTime.now());
+        filaMensagemRepository.save(filaMensagem);
+        return ResponseEntity.ok("Mensagem adicionada à fila com sucesso.");
     }
 
-    public List<Message> getNextMessagesToProcess() {
-        List<Message> urgentes = messageRepository.findByStatusAndPriorityOrderByTimestampAsc("queued", "urgent");
-        List<Message> normais = messageRepository.findByStatusAndPriorityOrderByTimestampAsc("queued", "normal");
+    public ResponseEntity<?> processarFila() {
+        List<FilaMensagem> fila = filaMensagemRepository.findPrioritized();
 
-        List<Message> todas = new java.util.ArrayList<>();
-        todas.addAll(urgentes);
-        todas.addAll(normais);
-        return todas;
+        if (fila.isEmpty()) {
+            return ResponseEntity.ok("Nenhuma mensagem para processar.");
+        }
+
+        StringBuilder log = new StringBuilder("Processando mensagens:\n");
+
+        for (FilaMensagem f : fila) {
+            Client client = f.getClient();
+            double custo = "urgent".equalsIgnoreCase(f.getPriority()) ? 0.50 : 0.25;
+
+            if ("prepaid".equalsIgnoreCase(client.getPlanType())) {
+                if (client.getBalance() == null || client.getBalance() < custo) {
+                    log.append("Saldo insuficiente para o cliente ID ").append(client.getId()).append("\n");
+                    continue;
+                }
+                client.setBalance(client.getBalance() - custo);
+            } else if ("postpaid".equalsIgnoreCase(client.getPlanType())) {
+                if (client.getLimit() == null || client.getLimit() < custo) {
+                    log.append("Limite insuficiente para o cliente ID ").append(client.getId()).append("\n");
+                    continue;
+                }
+                client.setLimit(client.getLimit() - custo);
+            } else {
+                log.append("Plano inválido para o cliente ID ").append(client.getId()).append("\n");
+                continue;
+            }
+
+            clientService.updateClient(client.getId(), client);
+
+            Transaction transaction = new Transaction();
+            transaction.setClient(client);
+            transaction.setAmount(custo);
+            transaction.setTimestamp(LocalDateTime.now());
+            transaction.setDescription("Envio de mensagem - " + f.getPriority() + " custo");
+            transaction.setType("debit");
+            transactionRepository.save(transaction);
+
+            filaMensagemRepository.delete(f);
+            log.append("Mensagem processada: ").append(f.getText()).append("\n");
+        }
+
+        return ResponseEntity.ok(log.toString());
     }
 
-    @Transactional
-    public void processMessages() {
-        List<Message> messagesToProcess = getNextMessagesToProcess();
-
-        for (Message message : messagesToProcess) {
-            message.setStatus("processed");
-            messageRepository.save(message);
-        }
+    public List<Transaction> getTransactionHistory(Long clientId) {
+        return transactionRepository.findByClientId(clientId);
     }
 
     public List<Message> getMessagesByConversationId(Long conversationId) {
@@ -77,5 +109,6 @@ public class MessageService {
     public Optional<Message> getMessageById(Long id) {
         return messageRepository.findById(id);
     }
+
 }
 
