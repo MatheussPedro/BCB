@@ -31,18 +31,39 @@ public class ClientController {
 
     @PostMapping
     public ResponseEntity<Object> createClient(@RequestBody Client client) {
-        if (client.getPlanType() == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro: Tipo de plano não especificado.");
+        String docType = client.getDocumentType();
+        String docId = client.getDocumentId();
+
+        if (!"CPF".equalsIgnoreCase(docType) && !"CNPJ".equalsIgnoreCase(docType)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erro: Tipo de documento inválido. Use 'CPF' ou 'CNPJ'.");
         }
 
-        if ("prepaid".equals(client.getPlanType())) {
+        if ("CPF".equalsIgnoreCase(docType) && docId.length() != 11) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erro: CPF deve conter exatamente 11 dígitos.");
+        } else if ("CNPJ".equalsIgnoreCase(docType) && docId.length() != 14) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erro: CNPJ deve conter exatamente 14 dígitos.");
+        }
+
+        if (clientRepository.findByDocumentId(docId).isPresent()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erro: Já existe um cliente com esse número de documento.");
+        }
+
+        String planType = client.getPlanType();
+        if (!"prepaid".equalsIgnoreCase(planType) && !"postpaid".equalsIgnoreCase(planType)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Erro: Tipo de plano inválido. Use 'prepaid' ou 'postpaid'.");
+        }
+
+        if ("prepaid".equalsIgnoreCase(planType)) {
             client.setBalance(100.00);
             client.setLimit(0.00);
-        } else if ("postpaid".equals(client.getPlanType())) {
+        } else {
             client.setBalance(0.00);
             client.setLimit(100.00);
-        } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Erro: Tipo de plano inválido.");
         }
 
         Client saved = clientRepository.save(client);
@@ -74,11 +95,11 @@ public class ClientController {
         client.setActive(updatedClient.getActive());
 
         if ("prepaid".equals(client.getPlanType())) {
-            client.setBalance(100.00);
+            client.setBalance(updatedClient.getBalance() != null ? updatedClient.getBalance() : 100.00);
             client.setLimit(0.00);
         } else if ("postpaid".equals(client.getPlanType())) {
             client.setBalance(0.00);
-            client.setLimit(100.00);
+            client.setLimit(updatedClient.getLimit() != null ? updatedClient.getLimit() : 100.00);
         }
 
         clientRepository.save(client);
