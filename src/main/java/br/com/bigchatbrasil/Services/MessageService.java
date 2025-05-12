@@ -37,19 +37,34 @@ public class MessageService {
 
     public ResponseEntity<?> adicionarNaFila(FilaMensagem filaMensagem) {
         if (filaMensagem.getClient() == null || filaMensagem.getClient().getId() == null) {
-            return ResponseEntity.badRequest().body("Cliente não informado.");
+            return ResponseEntity.badRequest().body("Cliente (remetente) não informado.");
+        }
+
+        if (filaMensagem.getRecipient() == null || filaMensagem.getRecipient().getId() == null) {
+            return ResponseEntity.badRequest().body("Destinatário não informado.");
+        }
+
+        if (filaMensagem.getClient().getId().equals(filaMensagem.getRecipient().getId())) {
+            return ResponseEntity.badRequest().body("Remetente e destinatário não podem ser o mesmo cliente.");
         }
 
         Optional<Client> existingClient = clientRepository.findById(filaMensagem.getClient().getId());
         if (!existingClient.isPresent()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body("Cliente com ID " + filaMensagem.getClient().getId() + " não encontrado.");
+                    .body("Remetente com ID " + filaMensagem.getClient().getId() + " não encontrado.");
+        }
+
+        Optional<Client> existingRecipient = clientRepository.findById(filaMensagem.getRecipient().getId());
+        if (!existingRecipient.isPresent()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Destinatário com ID " + filaMensagem.getRecipient().getId() + " não encontrado.");
         }
 
         filaMensagem.setTimestamp(LocalDateTime.now());
         filaMensagemRepository.save(filaMensagem);
         return ResponseEntity.ok("Mensagem adicionada à fila com sucesso.");
     }
+
 
     public ResponseEntity<?> processarFila() {
         List<FilaMensagem> fila = filaMensagemRepository.findPrioritized();
