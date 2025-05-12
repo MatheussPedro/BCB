@@ -94,12 +94,20 @@ public class ClientController {
         client.setPlanType(updatedClient.getPlanType());
         client.setActive(updatedClient.getActive());
 
-        if ("prepaid".equals(client.getPlanType())) {
-            client.setBalance(updatedClient.getBalance() != null ? updatedClient.getBalance() : 100.00);
+        if ("prepaid".equals(updatedClient.getPlanType()) && updatedClient.getBalance() == null) {
+            client.setBalance(100.00);
             client.setLimit(0.00);
-        } else if ("postpaid".equals(client.getPlanType())) {
+        } else if ("prepaid".equals(updatedClient.getPlanType())) {
+            client.setBalance(updatedClient.getBalance());
+            client.setLimit(0.00);
+        } else if ("postpaid".equals(updatedClient.getPlanType()) && updatedClient.getLimit() == null) {
             client.setBalance(0.00);
-            client.setLimit(updatedClient.getLimit() != null ? updatedClient.getLimit() : 100.00);
+            client.setLimit(100.00);
+        } else if ("postpaid".equals(updatedClient.getPlanType())) {
+            client.setBalance(0.00);
+            client.setLimit(updatedClient.getLimit());
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Plano inválido.");
         }
 
         clientRepository.save(client);
